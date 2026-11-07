@@ -1,0 +1,15 @@
+# === Story theme pool ===
+# generate_script.py picks one of these each run (round-robin, tracked in
+# output/.theme_index — or fully random if that file is missing).
+# Add, remove, or rewrite these freely — this is the easiest way to steer
+# what WonderPop Studio's episodes are about.
+
+themes:
+  - "A shy little cloud who is afraid to rain learns that it's okay to let your feelings out."
+  - "A tiny robot who collects lost socks discovers that helping others is its real purpose."
+  - "A forgetful squirrel loses its acorn map and learns teamwork from new forest friends."
+  - "A baby dragon who can't breathe fire yet learns that everyone grows at their own pace."
+  - "A paper boat afraid of the big river learns courage from a wise old turtle."
+  - "A grumpy cactus learns to make friends after a lonely desert storm."
+  - "A firefly who lost its glow learns that kindness lights the way back."
+  - "Two rival puddles learn that joining together makes them a stronger stream."
