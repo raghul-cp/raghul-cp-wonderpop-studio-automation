@@ -1,0 +1,77 @@
+name: 1 - Generate Short (draft for review)
+
+on:
+  schedule:
+    # 10:00 UTC every Monday and Thursday. Edit to taste — fewer runs
+    # means fewer things to review, which is fine to start with.
+    - cron: "0 10 * * 1,4"
+  workflow_dispatch: {}   # lets you click "Run workflow" manually too
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -y && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: 1/6 — Generate story script
+        working-directory: scripts
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python generate_script.py
+
+      - name: 2/6 — Generate scene images
+        working-directory: scripts
+        run: python generate_images.py
+
+      - name: 3/6 — Generate voiceover
+        working-directory: scripts
+        run: python generate_voiceover.py
+
+      - name: 4/6 — Generate subtitles
+        working-directory: scripts
+        run: python generate_subtitles.py
+
+      - name: 5/6 — Assemble video (FFmpeg)
+        working-directory: scripts
+        run: python assemble_video.py
+
+      - name: 6/6 — Generate title/description/tags
+        working-directory: scripts
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python generate_metadata.py
+
+      - name: Upload draft for your review
+        uses: actions/upload-artifact@v4
+        with:
+          name: wonderpop-draft-${{ github.run_id }}
+          path: |
+            output/final_short.mp4
+            output/metadata.json
+            output/script.json
+            output/subtitles.srt
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Write a summary
+        run: |
+          echo "### WonderPop Studio — draft ready 🎬" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **wonderpop-draft-${{ github.run_id }}** artifact above, " >> "$GITHUB_STEP_SUMMARY"
+          echo "watch \`final_short.mp4\`, and check \`metadata.json\` for the title/description." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Happy with it? Run the **2 - Upload Short to YouTube** workflow next, " >> "$GITHUB_STEP_SUMMARY"
+          echo "using run ID \`${{ github.run_id }}\` as the input." >> "$GITHUB_STEP_SUMMARY"
