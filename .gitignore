@@ -1,0 +1,16 @@
+# Generated output — regenerated fresh by every workflow run
+output/
+.kaggle_build/
+config/.theme_index
+
+# Never commit real secrets
+.env
+client_secret*.json
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS cruft
+.DS_Store
