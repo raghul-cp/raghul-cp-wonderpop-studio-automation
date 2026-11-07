@@ -1,0 +1,77 @@
+name: 1b - (Optional) Animate scenes with AI video on Kaggle
+
+# OPTIONAL and ADVANCED — skip this entirely if you just want the
+# default Ken Burns image slideshow, which is reliable and needs no
+# GPU. This workflow sends scene images to a free Kaggle GPU notebook
+# to turn them into real animated clips, then re-packages the draft
+# artifact so "2 - Upload Short to YouTube" can use it. See
+# SETUP_GUIDE.md before using this — it requires a free Kaggle account
+# and API token.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the '1 - Generate Short' draft to animate"
+        required: true
+        type: string
+
+jobs:
+  animate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg + Python dependencies
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg fonts-dejavu-core
+          pip install -r requirements.txt
+          pip install kaggle
+
+      - name: Download the draft to animate
+        uses: actions/download-artifact@v4
+        with:
+          name: wonderpop-draft-${{ github.event.inputs.run_id }}
+          path: output
+          run-id: ${{ github.event.inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-generate scene images locally
+        # The uploaded draft only keeps the final video to save storage,
+        # so we regenerate the per-scene images from script.json before
+        # sending them to Kaggle. (Same seeds in generate_images.py mean
+        # very similar art each time.)
+        working-directory: scripts
+        run: python generate_images.py
+
+      - name: Push scenes to Kaggle, wait, and download animated clips
+        working-directory: scripts
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: python run_kaggle_animator.py
+
+      - name: Re-generate voiceover + subtitles + final video with clips
+        working-directory: scripts
+        run: |
+          python generate_voiceover.py
+          python generate_subtitles.py
+          python assemble_video.py
+
+      - name: Re-upload the animated draft (same artifact name — replaces it)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wonderpop-draft-${{ github.event.inputs.run_id }}
+          path: |
+            output/final_short.mp4
+            output/metadata.json
+            output/script.json
+            output/subtitles.srt
+          retention-days: 7
+          overwrite: true
