@@ -1,0 +1,44 @@
+name: 2 - Upload Short to YouTube (after you've reviewed it)
+
+# Manual-only, on purpose: this never runs on a schedule. You trigger it
+# yourself, after watching the draft from the "1 - Generate Short"
+# workflow — that manual click IS the review step this project requires.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the '1 - Generate Short' run whose draft you reviewed (shown in that workflow's summary, and in its URL)"
+        required: true
+        type: string
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download the reviewed draft
+        uses: actions/download-artifact@v4
+        with:
+          name: wonderpop-draft-${{ github.event.inputs.run_id }}
+          path: output
+          run-id: ${{ github.event.inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to YouTube (always as Private — see upload_youtube.py)
+        working-directory: scripts
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python upload_youtube.py
