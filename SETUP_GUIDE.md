@@ -67,11 +67,10 @@ This step is the fiddliest part, but it's free and only needs doing once.
 2. Application type: **Desktop app**.
 3. Download the resulting JSON file (e.g. `client_secret.json`) to your laptop.
 
-### 3d. Get a refresh token (one local command)
 On your laptop (Windows 10 is fine — this is a normal, lightweight Python script, not an AI model):
-A browser window opens. Sign in with the account from step 3b and
+Sign in with the account from step 3b and
 approve access. The terminal then prints three values:
-Keep this terminal window open — you'll copy these into GitHub Secrets next.
+— you'll copy these into GitHub Secrets next.
 
 ---
 
