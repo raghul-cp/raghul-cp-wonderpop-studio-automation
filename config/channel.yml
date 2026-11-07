@@ -1,0 +1,27 @@
+# === WonderPop Studio — channel settings ===
+# Edit these to match your channel. Nothing here costs money to change.
+
+channel_name: "WonderPop Studio"
+
+# One line describing your channel's niche. Used in AI prompts for
+# script writing and metadata generation, so make it specific.
+niche: "Short, wholesome cartoon stories for kids with a gentle life lesson in every episode."
+
+# The consistent visual style applied to every generated scene image.
+# Keep this the same across episodes so your channel has a recognizable look.
+art_style: "flat vector cartoon illustration, bright pastel colors, bold clean outlines, children's storybook art, simple shapes, no text in image"
+
+# Narrator / voice settings (edge-tts voice names — free, no API key).
+# Full list: run `edge-tts --list-voices` after installing requirements.txt
+voice: "en-US-AnaNeural"      # a warm, friendly narrator voice
+voice_rate: "+0%"             # e.g. "+10%" to speak faster, "-10%" to slow down
+
+# Video settings
+resolution: [1080, 1920]      # vertical, for Shorts
+fps: 30
+target_scene_count: 6         # how many scenes/images per short
+max_total_seconds: 58         # keep under 60s to stay a clean "Short"
+
+# YouTube upload defaults
+category_id: "1"              # "1" = Film & Animation. See videoCategories.list for others.
+default_language: "en"
