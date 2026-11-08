@@ -5,15 +5,21 @@ channel_name: "WonderPop Studio"
 
 # One line describing your channel's niche. Used in AI prompts for
 # script writing and metadata generation, so make it specific.
-niche: "Short, wholesome cartoon stories for kids with a gentle life lesson in every episode."
+niche: "Short, wholesome animated cartoon stories for kids with a gentle life lesson in every episode, narrated in Tamil."
+
+# Language the STORY and NARRATION are written in. Image prompts stay in
+# English internally (image models understand English prompts far more
+# reliably), but everything the viewer reads/hears is this language.
+story_language: "Tamil"
 
 # The consistent visual style applied to every generated scene image.
 # Keep this the same across episodes so your channel has a recognizable look.
-art_style: "flat vector cartoon illustration, bright pastel colors, bold clean outlines, children's storybook art, simple shapes, no text in image"
+art_style: "detailed anime style illustration, Studio Ghibli inspired, vibrant anime color palette, expressive anime character design, clean line art, cel-shaded, cinematic lighting, no text in image"
 
 # Narrator / voice settings (edge-tts voice names — free, no API key).
+# Tamil voices: "ta-IN-PallaviNeural" (female) or "ta-IN-ValluvarNeural" (male).
 # Full list: run `edge-tts --list-voices` after installing requirements.txt
-voice: "en-US-AnaNeural"      # a warm, friendly narrator voice
+voice: "ta-IN-PallaviNeural"
 voice_rate: "+0%"             # e.g. "+10%" to speak faster, "-10%" to slow down
 
 # Video settings
@@ -24,4 +30,4 @@ max_total_seconds: 58         # keep under 60s to stay a clean "Short"
 
 # YouTube upload defaults
 category_id: "1"              # "1" = Film & Animation. See videoCategories.list for others.
-default_language: "en"
+default_language: "ta"
