@@ -2,9 +2,23 @@
 Step 1 of 6 — Generate the cartoon story: narration lines + scene (image)
 prompts, broken into short scenes for a YouTube Short.
 
-Primary path: free Groq API (no credit card, generous daily free limit).
+Narration is written in channel.yml's story_language (Tamil by default).
+Image prompts (visual / character_sheet) stay in English internally, since
+image-generation models follow English prompts far more reliably — the
+viewer never sees that text, only the art it produces.
+
+A fixed "character_sheet" is generated once per story and repeated into
+every single scene's image prompt in generate_images.py, so the same
+character(s) stay visually consistent scene to scene instead of a new
+random look each time.
+
+Primary path: free Groq API (no credit card, generous daily free limit;
+now tries several model names in common.py so one retirement doesn't
+take down the whole pipeline).
 Fallback: a local template generator, so the pipeline never hard-fails
-even if Groq is unreachable or GROQ_API_KEY is missing.
+even if Groq is unreachable or GROQ_API_KEY is missing. The fallback
+stays in English — it's a last-resort safety net, not the main path, so
+getting Groq working is what actually gets you Tamil episodes.
 
 Output: output/script.json
 """
@@ -36,6 +50,8 @@ def pick_theme(themes: list) -> str:
 def build_prompt(channel: dict, theme: str) -> list:
     n = channel["target_scene_count"]
     max_seconds = channel["max_total_seconds"]
+    language = channel.get("story_language", "English")
+    art_style = channel["art_style"]
     return [
         {
             "role": "system",
@@ -53,77 +69,12 @@ def build_prompt(channel: dict, theme: str) -> list:
                 f"The whole story will be narrated aloud and must fit in about "
                 f"{max_seconds} seconds total (roughly {max_seconds // n} seconds "
                 "of narration per scene, so keep each narration line SHORT — "
-                "1 to 2 simple sentences).\n"
-                "Return JSON with this exact shape:\n"
-                "{\n"
-                '  "title_seed": "a short working title",\n'
-                '  "theme": "the premise restated in a few words",\n'
-                '  "scenes": [\n'
-                '    {"id": 1, "narration": "...", "visual": "a vivid, concrete '
-                'description of what is drawn in this scene, no text/words in the image"}\n'
-                "  ]\n"
-                "}\n"
-                f"Include exactly {n} scenes, ids 1.." + str(n) + "."
-            ),
-        },
-    ]
-
-
-def extract_json(raw: str) -> dict:
-    # Strip markdown code fences if the model added them anyway.
-    cleaned = re.sub(r"^```(json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
-    return json.loads(cleaned)
-
-
-def fallback_script(channel: dict, theme: str) -> dict:
-    """A simple, zero-dependency template so the pipeline always produces
-    *something* usable even without an LLM. Quality is intentionally basic —
-    this is a safety net, not the main path."""
-    log("Using local fallback script generator (no AI).")
-    n = channel["target_scene_count"]
-    beats = [
-        "Our hero is introduced, going about an ordinary day.",
-        "Something unexpected happens that causes a small problem.",
-        "The hero tries to solve it alone and struggles.",
-        "A friend offers a new way to look at things.",
-        "The hero tries again, this time with a different approach.",
-        "The problem is resolved and the hero feels proud.",
-        "The hero shares what they learned with someone else.",
-        "The story ends on a warm, hopeful note.",
-    ]
-    chosen = (beats * ((n // len(beats)) + 1))[:n]
-    scenes = [
-        {
-            "id": i + 1,
-            "narration": f"{chosen[i]} ({theme.split('.')[0]}.)",
-            "visual": f"{theme}, scene depicting: {chosen[i]}",
-        }
-        for i in range(n)
-    ]
-    return {"title_seed": theme.split(".")[0][:60], "theme": theme, "scenes": scenes}
-
-
-def main():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    channel = load_channel_config()
-    themes = load_themes()
-    theme = pick_theme(themes)
-    log(f"Theme for this run: {theme}")
-
-    script = None
-    try:
-        raw = call_groq_chat(build_prompt(channel, theme))
-        script = extract_json(raw)
-        assert "scenes" in script and len(script["scenes"]) > 0
-        log(f"Generated script via Groq with {len(script['scenes'])} scenes.")
-    except Exception as e:
-        log(f"Groq script generation failed: {e}")
-        script = fallback_script(channel, theme)
-
-    script["channel"] = channel["channel_name"]
-    write_json(SCRIPT_JSON, script)
-    log(f"Wrote {SCRIPT_JSON}")
-
-
-if __name__ == "__main__":
-    main()
+                "1 to 2 simple sentences).\n\n"
+                f"IMPORTANT — two different languages are needed:\n"
+                f'- "narration" fields: write these in {language} (native script), '
+                f"since this is what the viewer hears and reads as captions.\n"
+                '- "visual" and "character_sheet" fields: write these in ENGLISH '
+                "only, regardless of the story's language — they are prompts for "
+                "an image-generation model, which follows English far more "
+                "reliably, and the viewer never sees this text directly.\n\n"
+                f'"character_sheet" must be ONE detailed
