@@ -45,6 +45,27 @@ def chunk_words(words: list) -> list:
     return chunks
 
 
+def even_caption_spans(text: str, scene_duration_ms: float) -> list:
+    """Used only when no word-level timing exists at all (e.g. the
+    template fallback script, which has no edge-tts timing data). Splits
+    the narration into short word-groups and spreads them evenly across
+    the scene's duration, so one scene never becomes a single giant
+    caption covering half the screen."""
+    words = text.split()
+    if not words:
+        return []
+    groups = [words[i:i + WORDS_PER_CAPTION] for i in range(0, len(words), WORDS_PER_CAPTION)]
+    span_ms = scene_duration_ms / len(groups)
+    spans = []
+    for i, group in enumerate(groups):
+        spans.append({
+            "text": " ".join(group),
+            "start_ms": i * span_ms,
+            "end_ms": (i + 1) * span_ms,
+        })
+    return spans
+
+
 def main():
     script = read_json(SCRIPT_JSON)
     durations = read_json(DURATIONS_JSON)
@@ -71,14 +92,17 @@ def main():
                 )
                 index += 1
         else:
-            # No word timing available (e.g. edge-tts fallback path) —
-            # show the full narration for the scene's whole duration.
+            # No word timing available at all — split the narration into
+            # short chunks spread evenly across the scene instead of one
+            # giant caption covering half the screen.
             scene_duration_ms = durations.get(str(sid), 3.0) * 1000
-            srt_lines.append(
-                f"{index}\n{ms_to_srt_time(cumulative_ms)} --> "
-                f"{ms_to_srt_time(cumulative_ms + scene_duration_ms)}\n{scene['narration']}\n"
-            )
-            index += 1
+            for span in even_caption_spans(scene["narration"], scene_duration_ms):
+                start = cumulative_ms + span["start_ms"]
+                end = cumulative_ms + span["end_ms"]
+                srt_lines.append(
+                    f"{index}\n{ms_to_srt_time(start)} --> {ms_to_srt_time(end)}\n{span['text']}\n"
+                )
+                index += 1
 
         cumulative_ms += durations.get(str(sid), 3.0) * 1000
 
