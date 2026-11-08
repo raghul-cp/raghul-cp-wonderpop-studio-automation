@@ -71,38 +71,64 @@ def ffprobe_duration_seconds(path: Path) -> float:
     return float(result.stdout.strip())
 
 
+GROQ_MODEL_CANDIDATES = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "gemma2-9b-it",
+]
+
+
 def call_groq_chat(messages, max_tokens=1200, temperature=0.9) -> str:
     """
     Calls Groq's free, OpenAI-compatible chat completion endpoint.
     Requires GROQ_API_KEY in the environment (set via GitHub Secrets).
-    Model names on Groq's free tier change over time — override with
-    the GROQ_MODEL env var if the default below has been retired.
-    Raises RuntimeError on any failure so callers can fall back gracefully.
+
+    Groq's free-tier model line-up shifts over time, so this tries a short
+    list of models in order and only gives up if every single one fails —
+    one retired model name should no longer be able to knock the whole
+    pipeline into its template fallback. Set GROQ_MODEL to force one
+    specific model instead of trying the list.
+
+    Raises RuntimeError (with every model's error attached) only if all
+    attempts fail, so callers can fall back gracefully.
     """
     import requests
 
-    api_key = os.environ.get("GROQ_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is not set")
 
-    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-    try:
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            },
-            timeout=60,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
-    except Exception as e:
-        raise RuntimeError(f"Groq call failed ({e}). Check GROQ_API_KEY and GROQ_MODEL.") from e
+    forced_model = os.environ.get("GROQ_MODEL", "").strip()
+    models_to_try = [forced_model] if forced_model else GROQ_MODEL_CANDIDATES
+
+    errors = []
+    for model in models_to_try:
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
+                timeout=60,
+            )
+            if resp.status_code == 401:
+                # Bad/expired key — no point trying other models.
+                raise RuntimeError(f"Groq rejected the API key (401). Check the GROQ_API_KEY secret. Response: {resp.text[:300]}")
+            resp.raise_for_status()
+            data = resp.json()
+            log(f"Groq call succeeded using model '{model}'.")
+            return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            detail = getattr(e, "response", None)
+            body = detail.text[:300] if detail is not None else str(e)
+            errors.append(f"{model}: {body}")
+            log(f"Groq model '{model}' failed, trying next if available: {body}")
+
+    raise RuntimeError("All Groq models failed:\n" + "\n".join(errors))
 
 
 def fail(msg: str):
