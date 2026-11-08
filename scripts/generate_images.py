@@ -6,12 +6,21 @@ no API key, no signup. The anonymous tier is rate-limited (be polite:
 we sleep between requests) and may add a small watermark; register for
 free at https://auth.pollinations.ai if you want to remove that.
 
+Every scene's prompt is prefixed with script.json's "character_sheet" (a
+fixed description of the main character written once in generate_script.py)
+and rendered with the SAME seed for every scene in the episode, so the
+character and palette stay much more consistent scene to scene than
+independent random generations would.
+
 Fallback: if Pollinations is unreachable or rate-limited, we draw a
 simple colored card with the scene text using Pillow, entirely offline,
-so the pipeline never stalls waiting on an external image service.
+so the pipeline never stalls waiting on an external image service. The
+fallback uses a Tamil-capable font (Lohit Tamil, installed by the
+workflow) so it degrades gracefully even for Tamil narration.
 
 Output: output/images/scene_<id>.jpg
 """
+import hashlib
 import textwrap
 import time
 import urllib.parse
@@ -27,9 +36,23 @@ POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
 REQUEST_SLEEP_SECONDS = 8   # be polite to the free, no-key anonymous tier
 MAX_RETRIES = 3
 
+# Tamil-capable font (installed via `fonts-lohit-taml` in the workflow).
+# Falls back to DejaVu (no Tamil glyphs, but won't crash) if not found.
+TAMIL_FONT_PATH = "/usr/share/fonts/truetype/lohit-tamil/Lohit-Tamil.ttf"
+FALLBACK_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-def build_prompt(art_style: str, visual: str) -> str:
-    return f"{visual}, {art_style}"
+
+def build_prompt(art_style: str, character_sheet: str, visual: str) -> str:
+    parts = [p for p in [character_sheet, visual, art_style] if p]
+    return ", ".join(parts)
+
+
+def episode_seed(script: dict) -> int:
+    """One stable seed per episode (derived from its title), shared by every
+    scene so the overall palette/style stays consistent across the short."""
+    basis = script.get("title_seed", "") or script.get("theme", "wonderpop")
+    digest = hashlib.sha256(basis.encode("utf-8")).hexdigest()
+    return int(digest[:8], 16) % 1_000_000
 
 
 def try_pollinations(prompt: str, width: int, height: int, seed: int, out_path):
@@ -44,16 +67,20 @@ def try_pollinations(prompt: str, width: int, height: int, seed: int, out_path):
     out_path.write_bytes(resp.content)
 
 
+def load_best_font(size: int) -> ImageFont.FreeTypeFont:
+    for path in (TAMIL_FONT_PATH, FALLBACK_FONT_PATH):
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
 def fallback_card(text: str, width: int, height: int, out_path, bg_rgb):
     """Draws a simple, readable placeholder card offline with Pillow."""
     img = Image.new("RGB", (width, height), bg_rgb)
     draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 54
-        )
-    except OSError:
-        font = ImageFont.load_default()
+    font = load_best_font(54)
 
     wrapped = textwrap.fill(text, width=22)
     bbox = draw.multiline_textbbox((0, 0), wrapped, font=font, align="center")
@@ -71,14 +98,16 @@ def main():
     script = read_json(SCRIPT_JSON)
     width, height = channel["resolution"]
     art_style = channel["art_style"]
+    character_sheet = script.get("character_sheet", "")
+    seed = episode_seed(script)
+    log(f"Episode seed: {seed} (shared across all scenes for visual consistency)")
 
     # A small rotating palette so fallback cards still look intentional.
     palette = [(91, 134, 229), (229, 134, 91), (134, 229, 145), (200, 110, 200)]
 
     for i, scene in enumerate(script["scenes"]):
         out_path = IMAGES_DIR / f"scene_{scene['id']}.jpg"
-        prompt = build_prompt(art_style, scene["visual"])
-        seed = 1000 + scene["id"]
+        prompt = build_prompt(art_style, character_sheet, scene["visual"])
 
         done = False
         for attempt in range(1, MAX_RETRIES + 1):
