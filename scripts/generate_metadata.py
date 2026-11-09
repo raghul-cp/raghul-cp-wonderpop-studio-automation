@@ -17,35 +17,32 @@ from common import (
 def build_prompt(channel: dict, script: dict) -> list:
     narration = " ".join(s["narration"] for s in script["scenes"])
     language = channel.get("story_language", "English")
+
+    # Single triple-quoted block on purpose — see the comment in
+    # generate_script.py's build_prompt for why this is more robust to
+    # copy/paste than many short adjacent-quoted lines.
+    user_content = f"""Channel: {channel['channel_name']} ({channel['niche']})
+Story: {script.get('theme', '')}
+Full narration: {narration}
+
+Write title and description in {language} (native script), since that is the video's spoken language and what viewers expect. tags can mix a few English discovery terms (like shorts, cartoon, animation) with a few in {language}.
+
+Return JSON with this exact shape:
+{{
+  "title": "a catchy title in {language}, under 80 characters, include #Shorts",
+  "description": "2-3 friendly sentences in {language} summarizing the story, end with a few relevant hashtags",
+  "tags": ["8 to 12 short keyword tags, no # symbol"]
+}}"""
+
     return [
         {
             "role": "system",
             "content": (
                 "You write YouTube Shorts metadata. Respond with STRICT JSON "
-                "only — no markdown, no commentary, no code fences."
+                "only, no markdown, no commentary, no code fences."
             ),
         },
-        {
-            "role": "user",
-            "content": (
-                f"Channel: {channel['channel_name']} ({channel['niche']})\n"
-                f"Story: {script.get('theme', '')}\n"
-                f"Full narration: {narration}\n\n"
-                f'Write "title" and "description" in {language} (native script), '
-                "since that is the video's spoken language and what viewers "
-                'expect. "tags" can mix a few English discovery terms (like '
-                '"shorts", "cartoon", "animation") with a few in '
-                f"{language}.\n\n"
-                "Return JSON with this exact shape:\n"
-                "{\n"
-                f'  "title": "a catchy title in {language}, under 80 characters, '
-                'include #Shorts",\n'
-                f'  "description": "2-3 friendly sentences in {language} '
-                'summarizing the story, end with a few relevant hashtags",\n'
-                '  "tags": ["8 to 12 short keyword tags, no # symbol"]\n'
-                "}"
-            ),
-        },
+        {"role": "user", "content": user_content},
     ]
 
 
