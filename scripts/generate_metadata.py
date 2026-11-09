@@ -16,6 +16,7 @@ from common import (
 
 def build_prompt(channel: dict, script: dict) -> list:
     narration = " ".join(s["narration"] for s in script["scenes"])
+    language = channel.get("story_language", "English")
     return [
         {
             "role": "system",
@@ -30,11 +31,17 @@ def build_prompt(channel: dict, script: dict) -> list:
                 f"Channel: {channel['channel_name']} ({channel['niche']})\n"
                 f"Story: {script.get('theme', '')}\n"
                 f"Full narration: {narration}\n\n"
+                f'Write "title" and "description" in {language} (native script), '
+                "since that is the video's spoken language and what viewers "
+                'expect. "tags" can mix a few English discovery terms (like '
+                '"shorts", "cartoon", "animation") with a few in '
+                f"{language}.\n\n"
                 "Return JSON with this exact shape:\n"
                 "{\n"
-                '  "title": "a catchy title under 80 characters, include #Shorts",\n'
-                '  "description": "2-3 friendly sentences summarizing the story, '
-                'end with a few relevant hashtags",\n'
+                f'  "title": "a catchy title in {language}, under 80 characters, '
+                'include #Shorts",\n'
+                f'  "description": "2-3 friendly sentences in {language} '
+                'summarizing the story, end with a few relevant hashtags",\n'
                 '  "tags": ["8 to 12 short keyword tags, no # symbol"]\n'
                 "}"
             ),
