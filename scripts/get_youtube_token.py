@@ -1,4 +1,4 @@
-"""
+ """
 Run this ONCE, locally, on your own laptop — not in GitHub Actions.
 
 It opens a browser so you can sign in to the Google account that owns
