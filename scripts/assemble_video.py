@@ -108,8 +108,13 @@ def main():
     # Burn in subtitles as the final pass.
     if SUBTITLES_SRT.exists() and SUBTITLES_SRT.stat().st_size > 0:
         srt_escaped = str(SUBTITLES_SRT.resolve()).replace(":", "\\:")
+        # "Lohit Tamil" (installed via `fonts-lohit-taml` in the workflow)
+        # renders Tamil glyphs correctly; DejaVu Sans does not and would
+        # show empty boxes for Tamil captions. If you change
+        # config/channel.yml's story_language to something else, swap this
+        # for a font that covers that script instead.
         style = (
-            "FontName=DejaVu Sans,FontSize=20,Bold=1,PrimaryColour=&H00FFFFFF,"
+            "FontName=Lohit Tamil,FontSize=20,Bold=1,PrimaryColour=&H00FFFFFF,"
             "OutlineColour=&H00000000,BorderStyle=3,Outline=2,Shadow=0,"
             "Alignment=2,MarginV=160"
         )
